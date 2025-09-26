@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Banco IBM - Muestra</title>
+  <style>
+    :root{--bg:#f4f6fb;--card:#ffffff;--accent:#2563eb;--muted:#666}
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{margin:0;background:linear-gradient(180deg,#e9f0ff 0%,var(--bg) 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:980px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    h1{margin:0;font-size:20px;color:#0f172a}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+    input,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef8;font-size:14px}
+    button{cursor:pointer;background:var(--accent);color:#fff;border:none}
+    .muted{color:var(--muted);font-size:13px}
+    .user-row{display:flex;align-items:center;gap:12px;margin-top:12px}
+    .avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#c7ddff,#8fb5ff);display:flex;align-items:center;justify-content:center;color:#042a6b;font-weight:700}
+    .balance{font-size:28px;color:#05205a;margin-top:6px}
+    .actions{display:flex;gap:10px;margin-top:14px}
+    .secondary{background:#eef4ff;color:var(--accent);border:1px solid #d5e7ff}
+    .tx-list{margin-top:14px;max-height:200px;overflow:auto;border-top:1px dashed #eef3ff;padding-top:10px}
+    .tx{padding:8px 6px;border-radius:8px;margin-bottom:6px;background:#fbfdff;border:1px solid #f0f7ff}
+    .tx small{color:var(--muted)}
+    .notice{font-size:13px;color:#0f172a;background:#fff9e6;padding:8px;border-radius:8px;border:1px solid #fff0c4}
+    @media (max-width:880px){.layout{grid-template-columns:1fr} .card{padding:14px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Banco IBM</h1>
+      <div class="muted">Interfaz de muestra (sin base de datos)</div>
+    </header>
+
+    <div class="layout">
+      <!-- Panel izquierdo: registrar / seleccionar usuario -->
+      <aside class="card">
+        <h3>Registrar nuevo usuario</h3>
+        <form id="formRegister">
+          <label for="name">Nombre completo</label>
+          <input id="name" required placeholder="Ej: María Pérez" />
+
+          <label for="dni">ID / CURP (único)</label>
+          <input id="dni" required placeholder="Ej: ABCD123456HDFRRL01" />
+
+          <label for="initial">Depósito inicial</label>
+          <input id="initial" type="number" min="0" step="0.01" value="0" />
+
+          <button style="margin-top:12px">Registrar usuario</button>
+        </form>
+
+        <hr style="margin:16px 0;border:none;border-top:1px dashed #eef3ff" />
+
+        <h3>Seleccionar / Iniciar sesión</h3>
+        <label for="selectUser">Usuarios existentes</label>
+        <select id="selectUser"></select>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="btnLogin">Iniciar sesión</button>
+          <button id="btnDelete" class="secondary">Eliminar</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="notice">Este demo es solo de muestra: no guarda datos permanentes ni se conecta a una base de datos.</div>
+        </div>
+      </aside>
+
+      <!-- Panel derecho: cuenta activa y operaciones -->
+      <main class="card" id="mainAccount">
+        <div id="noAccount">
+          <h3>Sin usuario actuando</h3>
+          <p class="muted">Registra un usuario o selecciona uno para ver su saldo y realizar operaciones.</p>
+        </div>
+
+        <div id="accountView" style="display:none">
+          <div class="user-row">
+            <div class="avatar" id="avatar">A</div>
+            <div>
+              <div id="userName" style="font-weight:700;font-size:16px">Nombre</div>
+              <div id="userDni" class="muted">ID</div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div class="muted">Saldo disponible</div>
+              <div class="balance" id="userBalance">$0.00</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <div style="flex:1">
+              <label for="depositAmount">Depositar</label>
+              <input id="depositAmount" type="number" min="0" step="0.01" placeholder="Cantidad" />
+              <button id="btnDeposit" style="margin-top:8px">Depositar</button>
+            </div>
+            <div style="flex:1">
+              <label for="withdrawAmount">Retirar</label>
+              <input id="withdrawAmount" type="number" min="0" step="0.01" placeholder="Cantidad" />
+              <button id="btnWithdraw" style="margin-top:8px">Retirar</button>
+            </div>
+            <div style="flex:1">
+              <label>&nbsp;</label>
+              <button id="btnLogout" class="secondary">Cerrar sesión</button>
+            </div>
+          </div>
+
+          <div class="tx-list" id="txList">
+            <!-- transacciones -->
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // --- helpers ---
+    function $(id){return document.getElementById(id)}
+    function currency(v){return (typeof v === 'number' ? v : Number(v)).toLocaleString('es-MX',{style:'currency',currency:'MXN'})}
+
+    // --- datos temporales en memoria ---
+    let users = [] // array de {dni,name,balance,tx: [{type,amount,date,desc}]}
+    let active = null // dni
+
+    function findUser(dni){ return users.find(u=>u.dni===dni) }
+
+    function refreshUserSelect(){
+      const sel = $('selectUser'); sel.innerHTML = ''
+      if(users.length===0){ const opt = document.createElement('option'); opt.text='-- No hay usuarios --'; opt.value=''; sel.add(opt); return }
+      users.forEach(u=>{ const opt=document.createElement('option'); opt.value=u.dni; opt.text=${u.name} — ${u.dni}; sel.add(opt) })
+    }
+
+    function showAccount(dni){
+      const u = findUser(dni)
+      if(!u) return alert('Usuario no encontrado')
+      active = u.dni
+      $('noAccount').style.display='none'
+      $('accountView').style.display='block'
+      $('avatar').textContent = (u.name || '?').trim().slice(0,1).toUpperCase()
+      $('userName').textContent = u.name
+      $('userDni').textContent = ID: ${u.dni}
+      $('userBalance').textContent = currency(u.balance)
+      renderTx(u)
+    }
+
+    function hideAccount(){ active = null; $('noAccount').style.display='block'; $('accountView').style.display='none' }
+
+    function renderTx(user){
+      const box = $('txList'); box.innerHTML=''
+      if(!user.tx || user.tx.length===0){ box.innerHTML = '<div class="muted">Sin transacciones</div>'; return }
+      user.tx.slice().reverse().forEach(t=>{
+        const el = document.createElement('div'); el.className='tx'
+        el.innerHTML = <div style="display:flex;justify-content:space-between"><strong>${t.type}</strong><span>${currency(t.amount)}</span></div><div style="display:flex;justify-content:space-between;margin-top:6px"><small>${new Date(t.date).toLocaleString()}</small><small>${t.desc||''}</small></div>
+        box.appendChild(el)
+      })
+    }
+
+    // --- acciones ---
+    $('formRegister').addEventListener('submit',e=>{
+      e.preventDefault()
+      const name = $('name').value.trim(); const dni = $('dni').value.trim(); const initial = Number($('initial').value)||0
+      if(!name||!dni) return alert('Completa nombre e ID')
+      if(findUser(dni)) return alert('Ya existe un usuario con ese ID')
+      const u = {name,dni,balance:Math.max(0,Number(initial)),tx:[]}
+      if(initial>0) u.tx.push({type:'Depósito inicial',amount:Number(initial),date:Date.now(),desc:'Registro'})
+      users.push(u); refreshUserSelect();
+      $('formRegister').reset();
+      alert('Usuario registrado correctamente (solo de muestra)')
+    })
+
+    $('btnLogin').addEventListener('click',()=>{
+      const sel = $('selectUser').value
+      if(!sel) return alert('Selecciona un usuario')
+      showAccount(sel)
+    })
+
+    $('btnDelete').addEventListener('click',()=>{
+      const sel = $('selectUser').value; if(!sel) return alert('Selecciona un usuario')
+      if(!confirm('¿Eliminar usuario? Esta acción es solo de muestra.')) return
+      users = users.filter(u=>u.dni!==sel); refreshUserSelect(); if(active===sel) hideAccount();
+    })
+
+    $('btnLogout').addEventListener('click',()=>{ hideAccount(); })
+
+    $('btnDeposit').addEventListener('click',()=>{
+      if(!active) return alert('No hay usuario activo')
+      const amt = Number($('depositAmount').value)
+      if(!amt || amt<=0) return alert('Ingresa una cantidad válida')
+      const u = findUser(active)
+      u.balance = Number(u.balance) + amt
+      u.tx.push({type:'Depósito',amount:amt,date:Date.now(),desc:''})
+      $('depositAmount').value=''; showAccount(active)
+    })
+
+    $('btnWithdraw').addEventListener('click',()=>{
+      if(!active) return alert('No hay usuario activo')
+      const amt = Number($('withdrawAmount').value)
+      if(!amt || amt<=0) return alert('Ingresa una cantidad válida')
+      const u = findUser(active)
+      if(amt > u.balance) return alert('Saldo insuficiente')
+      u.balance = Number(u.balance) - amt
+      u.tx.push({type:'Retiro',amount:amt,date:Date.now(),desc:''})
+      $('withdrawAmount').value=''; showAccount(active)
+    })
+
+    // --- init ---
+    refreshUserSelect();
+  </script>
+</body>
+</html>
